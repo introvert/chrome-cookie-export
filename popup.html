@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Cookie Export</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <h1>Cookie Export</h1>
+    <div id="site" class="site">Loading…</div>
+  </header>
+
+  <section class="controls">
+    <label>
+      Format
+      <select id="format">
+        <option value="json">JSON</option>
+        <option value="netscape">Netscape (cookies.txt)</option>
+        <option value="header">Cookie header</option>
+      </select>
+    </label>
+    <label class="check">
+      <input type="checkbox" id="wholeDomain">
+      Include all cookies for the domain (incl. subdomains &amp; other paths)
+    </label>
+  </section>
+
+  <div id="count" class="count"></div>
+  <textarea id="output" readonly spellcheck="false"></textarea>
+
+  <div class="buttons">
+    <button id="copy">Copy</button>
+    <button id="download" class="primary">Download</button>
+  </div>
+  <div id="status" class="status" role="status"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
