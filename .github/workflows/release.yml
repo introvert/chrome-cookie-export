@@ -1,12 +1,20 @@
 name: Release
 
+# Runs the e2e test on every push to main and publishes a GitHub release
+# (tag v<manifest version>) whenever that version has not been released yet.
+# Pushing a v* tag or running the workflow manually also works.
 on:
   push:
+    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -14,11 +22,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check tag matches manifest version
-        if: github.ref_type == 'tag'
+      - name: Decide release tag
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          v=$(jq -r .version manifest.json)
-          [ "v$v" = "${GITHUB_REF_NAME}" ] || { echo "Tag ${GITHUB_REF_NAME} != manifest version v$v"; exit 1; }
+          version=$(jq -r .version manifest.json)
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            [ "v$version" = "${GITHUB_REF_NAME}" ] || { echo "Tag ${GITHUB_REF_NAME} != manifest version v$version"; exit 1; }
+          fi
+          tag="v$version"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $tag already exists; will only test and build."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: actions/setup-node@v4
         with:
@@ -40,17 +60,12 @@ jobs:
           path: ${{ steps.build.outputs.zip }}
 
       - name: Publish GitHub release
-        # Tag push: release that tag. Manual run: create tag v<manifest version>
-        # on the current commit (fails if that release already exists).
+        if: steps.tag.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
           ZIP: ${{ steps.build.outputs.zip }}
         run: |
-          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
-            tag="${GITHUB_REF_NAME}"; target_args=(--verify-tag)
-          else
-            tag="v$(jq -r .version manifest.json)"; target_args=(--target "${GITHUB_SHA}")
-          fi
-          gh release create "$tag" "$ZIP" "${target_args[@]}" \
-            --title "Cookie Export $tag" \
+          gh release create "$TAG" "$ZIP" --target "${GITHUB_SHA}" \
+            --title "Cookie Export $TAG" \
             --notes "Download \`$(basename "$ZIP")\`, unzip it, then in \`chrome://extensions\` enable Developer mode and click **Load unpacked** on the unzipped folder."
