@@ -3,10 +3,10 @@
 const $ = (id) => document.getElementById(id);
 
 const state = {
-  tab: null,
   url: null,
   storeId: undefined,
-  cookies: [],
+  cookies: [], // everything found for the current scope
+  excluded: new Set(), // keys of cookies the user unticked
 };
 
 // ---------- cookie collection ----------
@@ -44,7 +44,7 @@ async function collectCookies(url, storeId, wholeDomain) {
 
   if (wholeDomain) {
     const domain = hostname.replace(/^www\./, "");
-    // All cookies for this domain and its subdomains, any path.
+    // All cookies for this host and its subdomains, any path.
     queries.push({ ...base, domain });
     queries.push({ ...base, domain, partitionKey: { topLevelSite: origin } });
   }
@@ -101,7 +101,9 @@ function toNetscape(cookies) {
 function toHeader(cookies) {
   // Browsers send longer (more specific) paths first.
   return [...cookies]
-    .sort((a, b) => b.path.length - a.path.length).map((c) => `${c.name}=${c.value}`).join("; ");
+    .sort((a, b) => b.path.length - a.path.length)
+    .map((c) => `${c.name}=${c.value}`)
+    .join("; ");
 }
 
 const FORMATS = {
@@ -110,35 +112,115 @@ const FORMATS = {
   header: { fn: toHeader, ext: "txt", mime: "text/plain" },
 };
 
+// ---------- selection ----------
+
+function selectedCookies() {
+  return state.cookies.filter((c) => !state.excluded.has(cookieKey(c)));
+}
+
+function matchesFilter(c, q) {
+  if (!q) return true;
+  return (
+    c.name.toLowerCase().includes(q) ||
+    c.domain.toLowerCase().includes(q) ||
+    c.value.toLowerCase().includes(q)
+  );
+}
+
+function visibleCookies() {
+  const q = $("filter").value.trim().toLowerCase();
+  return state.cookies.filter((c) => matchesFilter(c, q));
+}
+
+function setSelected(c, on) {
+  const k = cookieKey(c);
+  if (on) state.excluded.delete(k);
+  else state.excluded.add(k);
+}
+
 // ---------- UI ----------
 
 function setStatus(msg, isError = false) {
   const el = $("status");
   el.textContent = msg;
   el.classList.toggle("error", isError);
-  if (msg && !isError) {
-    clearTimeout(setStatus.t);
-    setStatus.t = setTimeout(() => (el.textContent = ""), 2500);
-  }
+  clearTimeout(setStatus.t);
+  if (msg && !isError) setStatus.t = setTimeout(() => (el.textContent = ""), 2500);
 }
 
-function render() {
-  const fmt = FORMATS[$("format").value];
-  const text = fmt.fn(state.cookies);
-  $("output").value = text;
-  const n = state.cookies.length;
-  $("count").textContent = `${n} cookie${n === 1 ? "" : "s"}`;
-  $("copy").disabled = $("download").disabled = n === 0;
+function formatExpiry(c) {
+  if (c.session || !c.expirationDate) return "session";
+  return new Date(c.expirationDate * 1000).toLocaleString();
+}
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+function renderList() {
+  const list = $("list");
+  list.replaceChildren();
+  const visible = visibleCookies();
+
+  for (const c of visible) {
+    const li = el("li");
+    const label = el("label", "check");
+    const box = el("input");
+    box.type = "checkbox";
+    box.checked = !state.excluded.has(cookieKey(c));
+    box.addEventListener("change", () => {
+      setSelected(c, box.checked);
+      renderSummary();
+    });
+
+    const info = el("div", "cookie");
+    const name = el("div", "name", c.name || "(no name)");
+    if (c.httpOnly) name.append(el("span", "tag", "HttpOnly"));
+    if (c.secure) name.append(el("span", "tag", "Secure"));
+    if (c.partitionKey) name.append(el("span", "tag", "Partitioned"));
+    const meta = el("div", "meta", `${c.domain}${c.path} · ${formatExpiry(c)}`);
+    const value = el("div", "value", c.value);
+    value.title = c.value;
+    info.append(name, meta, value);
+
+    label.append(box, info);
+    li.append(label);
+    list.append(li);
+  }
+
+  $("empty").hidden = state.cookies.length !== 0;
+  $("empty").textContent = "No cookies for this site.";
+  if (state.cookies.length && !visible.length) {
+    $("empty").hidden = false;
+    $("empty").textContent = "No cookies match the filter.";
+  }
+  renderSummary();
+}
+
+// Updates counts, the select-all box, buttons and preview (not the list itself).
+function renderSummary() {
+  const selected = selectedCookies();
+  const total = state.cookies.length;
+  $("count").textContent = `${selected.length} of ${total} selected`;
+
+  const visible = visibleCookies();
+  const visSel = visible.filter((c) => !state.excluded.has(cookieKey(c))).length;
+  const all = $("selectAll");
+  all.disabled = visible.length === 0;
+  all.checked = visible.length > 0 && visSel === visible.length;
+  all.indeterminate = visSel > 0 && visSel < visible.length;
+
+  $("copy").disabled = $("download").disabled = selected.length === 0;
+  $("output").value = selected.length ? FORMATS[$("format").value].fn(selected) : "";
 }
 
 async function refresh() {
   try {
-    state.cookies = await collectCookies(
-      state.url,
-      state.storeId,
-      $("wholeDomain").checked
-    );
-    render();
+    state.cookies = await collectCookies(state.url, state.storeId, $("wholeDomain").checked);
+    renderList();
   } catch (e) {
     setStatus(`Failed to read cookies: ${e.message}`, true);
   }
@@ -151,6 +233,7 @@ function savePrefs() {
       JSON.stringify({
         format: $("format").value,
         wholeDomain: $("wholeDomain").checked,
+        preview: $("previewBox").open,
       })
     );
   } catch (_) {}
@@ -161,18 +244,29 @@ function loadPrefs() {
     const p = JSON.parse(localStorage.getItem("prefs") || "{}");
     if (p.format && FORMATS[p.format]) $("format").value = p.format;
     if (typeof p.wholeDomain === "boolean") $("wholeDomain").checked = p.wholeDomain;
+    if (typeof p.preview === "boolean") $("previewBox").open = p.preview;
   } catch (_) {}
 }
 
+function exportText() {
+  return FORMATS[$("format").value].fn(selectedCookies());
+}
+
 async function copyOutput() {
+  const text = exportText();
+  const n = selectedCookies().length;
   try {
-    await navigator.clipboard.writeText($("output").value);
-    setStatus("Copied to clipboard");
+    await navigator.clipboard.writeText(text);
   } catch (e) {
-    $("output").select();
-    document.execCommand("copy");
-    setStatus("Copied to clipboard");
+    const ta = $("output");
+    ta.value = text;
+    ta.select();
+    if (!document.execCommand("copy")) {
+      setStatus("Copy failed", true);
+      return;
+    }
   }
+  setStatus(`Copied ${n} cookie${n === 1 ? "" : "s"}`);
 }
 
 function downloadOutput() {
@@ -180,10 +274,10 @@ function downloadOutput() {
   const fmt = FORMATS[key];
   const host = new URL(state.url).hostname;
   const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-  const suffix = key === "netscape" ? "cookies" : key === "header" ? "cookie-header" : "cookies";
+  const suffix = key === "header" ? "cookie-header" : "cookies";
   const filename = `${host}_${suffix}_${stamp}.${fmt.ext}`;
 
-  const blob = new Blob([$("output").value], { type: fmt.mime });
+  const blob = new Blob([exportText()], { type: fmt.mime });
   const href = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = href;
@@ -195,28 +289,37 @@ function downloadOutput() {
   setStatus(`Saved ${filename}`);
 }
 
+function disableAll() {
+  for (const id of ["copy", "download", "format", "wholeDomain", "selectAll", "filter"]) {
+    $(id).disabled = true;
+  }
+}
+
 async function init() {
   loadPrefs();
-  $("format").addEventListener("change", () => { savePrefs(); render(); });
+  $("format").addEventListener("change", () => { savePrefs(); renderSummary(); });
   $("wholeDomain").addEventListener("change", () => { savePrefs(); refresh(); });
+  $("previewBox").addEventListener("toggle", savePrefs);
+  $("filter").addEventListener("input", renderList);
+  $("selectAll").addEventListener("change", () => {
+    const on = $("selectAll").checked;
+    for (const c of visibleCookies()) setSelected(c, on);
+    renderList();
+  });
   $("copy").addEventListener("click", copyOutput);
   $("download").addEventListener("click", downloadOutput);
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  state.tab = tab;
 
-  let url;
+  let url = null;
   try {
-    url = tab && tab.url ? new URL(tab.url) : null;
-  } catch (_) {
-    url = null;
-  }
+    if (tab && tab.url) url = new URL(tab.url);
+  } catch (_) {}
   if (!url || !/^https?:$/.test(url.protocol)) {
-    $("site").textContent = tab && tab.url ? tab.url : "No active tab";
+    $("site").textContent = tab && tab.url ? tab.url : "No web page in this tab";
     $("count").textContent = "";
     setStatus("Cookies can only be exported from http(s) pages.", true);
-    $("copy").disabled = $("download").disabled = true;
-    $("format").disabled = $("wholeDomain").disabled = true;
+    disableAll();
     return;
   }
 

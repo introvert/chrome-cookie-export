@@ -13,7 +13,8 @@ Export the cookies of the site in your current tab with one click.
   - *Include all paths and subdomains of this host*: also cookies set on other paths or on subdomains of the current host (a leading `www.` is ignored).
 - Includes partitioned (CHIPS) cookies on Chrome 119+.
 - Works in incognito (reads the incognito cookie store when the extension is allowed in incognito).
-- **Copy** to clipboard or **Download** as a file (`<host>_cookies_<timestamp>.json|txt`).
+- **Pick which cookies to export** – every cookie is listed with its domain, path, expiry, value and flags (HttpOnly / Secure / Partitioned). Untick the ones you don't want, filter by name/domain/value, and use the header checkbox to select or clear everything shown.
+- **Copy** the selected cookies to the clipboard or **Download** them as a file (`<host>_cookies_<timestamp>.json|txt`). A collapsible preview shows exactly what will be exported.
 - Light/dark theme follows the system.
 
 ## Install (unpacked)
@@ -38,3 +39,9 @@ Nothing is sent anywhere — the extension has no network code; exports stay on 
 ## Development
 
 Icons are generated with `python3 tools/make-icons.py` (stdlib only).
+
+End-to-end test (loads the extension in Chromium with Playwright and drives the popup — selection, filter, copy, JSON/Netscape downloads, prefs, non-http tabs):
+
+```bash
+node tests/e2e.js
+```

@@ -41,7 +41,7 @@ select, textarea {
 select { padding: 4px 6px; flex: 1; }
 textarea {
   width: 100%;
-  height: 220px;
+  height: 140px;
   padding: 8px;
   font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   resize: vertical;
@@ -61,3 +61,36 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 button:disabled { opacity: .5; cursor: default; }
 .status { min-height: 1.4em; margin-top: 6px; color: var(--muted); text-align: right; }
 .status.error { color: #d1242f; }
+
+/* ---------- cookie picker ---------- */
+.picker { border: 1px solid var(--border); border-radius: 6px; margin: 8px 0; }
+.picker-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; border-bottom: 1px solid var(--border);
+}
+.picker-bar .all { color: var(--fg); white-space: nowrap; align-items: center; }
+#filter {
+  flex: 1; min-width: 0; padding: 4px 6px; font: inherit;
+  background: var(--field); color: var(--fg);
+  border: 1px solid var(--border); border-radius: 6px;
+}
+.list { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow-y: auto; }
+.list li { border-bottom: 1px solid var(--border); }
+.list li:last-child { border-bottom: 0; }
+.list label { align-items: flex-start; padding: 5px 8px; cursor: pointer; }
+.list label:hover { background: var(--field); }
+.list input { margin-top: 2px; flex: none; }
+.cookie { min-width: 0; flex: 1; }
+.cookie .name { font-weight: 600; word-break: break-all; }
+.cookie .meta, .cookie .value {
+  color: var(--muted); font-size: 11px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cookie .value { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.tag {
+  display: inline-block; font-size: 10px; padding: 0 4px; margin-left: 4px;
+  border: 1px solid var(--border); border-radius: 4px; color: var(--muted); font-weight: 400;
+}
+.empty { padding: 12px; color: var(--muted); text-align: center; }
+details summary { cursor: pointer; color: var(--muted); margin: 4px 0; }
+details textarea { height: 140px; }

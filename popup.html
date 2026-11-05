@@ -26,8 +26,22 @@
     </label>
   </section>
 
-  <div id="count" class="count"></div>
-  <textarea id="output" readonly spellcheck="false"></textarea>
+  <section class="picker">
+    <div class="picker-bar">
+      <label class="check all">
+        <input type="checkbox" id="selectAll">
+        <span id="count">0 cookies</span>
+      </label>
+      <input type="search" id="filter" placeholder="Filter by name, domain or value" aria-label="Filter cookies">
+    </div>
+    <ul id="list" class="list" aria-label="Cookies"></ul>
+    <div id="empty" class="empty" hidden>No cookies for this site.</div>
+  </section>
+
+  <details id="previewBox">
+    <summary>Preview</summary>
+    <textarea id="output" wrap="off" readonly spellcheck="false" aria-label="Export preview"></textarea>
+  </details>
 
   <div class="buttons">
     <button id="copy">Copy</button>
