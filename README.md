@@ -57,6 +57,6 @@ node tests/e2e.js
 ## Releasing
 
 1. Bump `version` in `manifest.json`.
-2. Commit, then tag and push: `git tag v<version> && git push origin v<version>`.
+2. Commit and push to `main`, then either push a tag `v<version>` or run the **Release** workflow manually from the Actions tab (it creates the `v<version>` tag itself).
 
 The [Release workflow](.github/workflows/release.yml) checks the tag matches the manifest, runs the e2e test, builds the zip with `tools/build-zip.sh` and publishes it as a GitHub release.
