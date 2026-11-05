@@ -3,7 +3,7 @@
   "name": "Cookie Export",
   "version": "1.0.0",
   "description": "Export the cookies of the current site as JSON, Netscape cookies.txt, or a Cookie header.",
-  "permissions": ["cookies", "activeTab", "tabs"],
+  "permissions": ["cookies"],
   "host_permissions": ["<all_urls>"],
   "action": {
     "default_popup": "popup.html",

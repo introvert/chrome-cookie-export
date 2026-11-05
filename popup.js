@@ -99,7 +99,9 @@ function toNetscape(cookies) {
 }
 
 function toHeader(cookies) {
-  return cookies.map((c) => `${c.name}=${c.value}`).join("; ");
+  // Browsers send longer (more specific) paths first.
+  return [...cookies]
+    .sort((a, b) => b.path.length - a.path.length).map((c) => `${c.name}=${c.value}`).join("; ");
 }
 
 const FORMATS = {

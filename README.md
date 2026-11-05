@@ -10,7 +10,7 @@ Export the cookies of the site in your current tab with one click.
   - **Cookie header** – `name=value; name2=value2`, ready to paste into a `Cookie:` request header.
 - **Scope**
   - Default: exactly the cookies the browser would send to the current URL (including parent-domain cookies).
-  - *Include all cookies for the domain*: also cookies for subdomains and other paths.
+  - *Include all paths and subdomains of this host*: also cookies set on other paths or on subdomains of the current host (a leading `www.` is ignored).
 - Includes partitioned (CHIPS) cookies on Chrome 119+.
 - Works in incognito (reads the incognito cookie store when the extension is allowed in incognito).
 - **Copy** to clipboard or **Download** as a file (`<host>_cookies_<timestamp>.json|txt`).
@@ -29,8 +29,7 @@ Export the cookies of the site in your current tab with one click.
 | Permission | Why |
 |---|---|
 | `cookies` | Read cookies via `chrome.cookies.getAll`. |
-| `tabs` / `activeTab` | Read the URL of the current tab. |
-| `<all_urls>` host permission | Chrome only returns cookies for hosts the extension has permission for. |
+| `<all_urls>` host permission | Chrome only returns cookies (and the tab URL) for hosts the extension has permission for. |
 
 Nothing is sent anywhere — the extension has no network code; exports stay on your machine.
 
