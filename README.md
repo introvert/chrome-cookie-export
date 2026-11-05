@@ -17,7 +17,15 @@ Export the cookies of the site in your current tab with one click.
 - **Copy** the selected cookies to the clipboard or **Download** them as a file (`<host>_cookies_<timestamp>.json|txt`). A collapsible preview shows exactly what will be exported.
 - Light/dark theme follows the system.
 
-## Install (unpacked)
+## Install
+
+### From a release (easiest)
+
+1. Download `cookie-export-<version>.zip` from the [latest release](https://github.com/introvert/chrome-cookie-export/releases/latest) and unzip it.
+2. Open `chrome://extensions` and enable **Developer mode** (top right).
+3. Click **Load unpacked** and select the unzipped folder.
+
+### From source
 
 1. Clone or download this repository.
 2. Open `chrome://extensions`.
@@ -45,3 +53,10 @@ End-to-end test (loads the extension in Chromium with Playwright and drives the 
 ```bash
 node tests/e2e.js
 ```
+
+## Releasing
+
+1. Bump `version` in `manifest.json`.
+2. Commit, then tag and push: `git tag v<version> && git push origin v<version>`.
+
+The [Release workflow](.github/workflows/release.yml) checks the tag matches the manifest, runs the e2e test, builds the zip with `tools/build-zip.sh` and publishes it as a GitHub release.

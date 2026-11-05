@@ -95,6 +95,7 @@ const ok = (cond, msg) => { console.log((cond ? 'PASS ' : 'FAIL ') + msg); if (!
 
   // preview matches selection
   await p.click('#previewBox summary');
+  await p.waitForFunction(() => document.querySelector('#output').value);
   ok((await p.inputValue('#output')).trim() === txt.trim(), 'preview matches downloaded file');
 
   // deselect all -> disabled buttons
@@ -108,6 +109,35 @@ const ok = (cond, msg) => { console.log((cond ? 'PASS ' : 'FAIL ') + msg); if (!
 
   await p.setViewportSize({ width: 420, height: 640 });
   
+
+  // preview stays live while open
+  await p.selectOption('#format', 'header');
+  await row('a').uncheck();
+  ok(!(await p.inputValue('#output')).includes('a=1'), 'open preview updates on selection change');
+  await row('a').check();
+
+  // nameless cookies are sent as just the value in a Cookie header
+  const hdr = await p.evaluate(() => toHeader([{ name: '', value: 'bare', path: '/' }, { name: 'n', value: 'v', path: '/x' }]));
+  ok(hdr === 'n=v; bare',
+    'header: nameless cookie emitted as bare value, longer path first: ' + hdr);
+
+  // rapid scope toggling settles on the last state
+  await p.evaluate(() => { const w = document.querySelector('#wholeDomain'); for (let i = 0; i < 5; i++) w.click(); });
+  await p.waitForTimeout(300);
+  ok(!(await p.isChecked('#wholeDomain')) && (await p.$$('#list li')).length === 4, 'rapid toggling ends in URL scope with 4 cookies');
+  await p.check('#wholeDomain');
+  await p.waitForFunction(() => document.querySelectorAll('#list li').length === 5);
+
+  // clipboard fallback when the Clipboard API is unavailable
+  await p.evaluate(() => {
+    navigator.clipboard.writeText = () => Promise.reject(new Error('blocked'));
+    const orig = document.execCommand.bind(document);
+    document.execCommand = (cmd) => { window.__fallback = document.activeElement && document.activeElement.value; return orig(cmd) || true; };
+  });
+  await p.click('#copy');
+  await p.waitForFunction(() => document.querySelector('#status').textContent.startsWith('Copied'));
+  ok((await p.evaluate(() => window.__fallback || '')).includes('persist=3'), 'execCommand fallback copies selected cookies');
+  await p.selectOption('#format', 'netscape');
 
   // prefs persisted
   const p3 = await openPopup('http://localhost:8767/');

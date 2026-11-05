@@ -102,7 +102,7 @@ function toHeader(cookies) {
   // Browsers send longer (more specific) paths first.
   return [...cookies]
     .sort((a, b) => b.path.length - a.path.length)
-    .map((c) => `${c.name}=${c.value}`)
+    .map((c) => (c.name ? `${c.name}=${c.value}` : c.value))
     .join("; ");
 }
 
@@ -214,12 +214,20 @@ function renderSummary() {
   all.indeterminate = visSel > 0 && visSel < visible.length;
 
   $("copy").disabled = $("download").disabled = selected.length === 0;
+  renderPreview(selected);
+}
+
+function renderPreview(selected = selectedCookies()) {
+  if (!$("previewBox").open) return;
   $("output").value = selected.length ? FORMATS[$("format").value].fn(selected) : "";
 }
 
 async function refresh() {
+  const seq = (refresh.seq = (refresh.seq || 0) + 1);
   try {
-    state.cookies = await collectCookies(state.url, state.storeId, $("wholeDomain").checked);
+    const cookies = await collectCookies(state.url, state.storeId, $("wholeDomain").checked);
+    if (seq !== refresh.seq) return; // a newer refresh superseded this one
+    state.cookies = cookies;
     renderList();
   } catch (e) {
     setStatus(`Failed to read cookies: ${e.message}`, true);
@@ -258,10 +266,15 @@ async function copyOutput() {
   try {
     await navigator.clipboard.writeText(text);
   } catch (e) {
-    const ta = $("output");
+    const ta = document.createElement("textarea");
     ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
     ta.select();
-    if (!document.execCommand("copy")) {
+    const copied = document.execCommand("copy");
+    ta.remove();
+    if (!copied) {
       setStatus("Copy failed", true);
       return;
     }
@@ -299,7 +312,7 @@ async function init() {
   loadPrefs();
   $("format").addEventListener("change", () => { savePrefs(); renderSummary(); });
   $("wholeDomain").addEventListener("change", () => { savePrefs(); refresh(); });
-  $("previewBox").addEventListener("toggle", savePrefs);
+  $("previewBox").addEventListener("toggle", () => { savePrefs(); renderPreview(); });
   $("filter").addEventListener("input", renderList);
   $("selectAll").addEventListener("change", () => {
     const on = $("selectAll").checked;
